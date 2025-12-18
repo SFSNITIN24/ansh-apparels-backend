@@ -1,15 +1,29 @@
 import { NextResponse } from "next/server";
 import { Readable } from "stream";
 
-import { getCorsHeaders } from "@/lib/cors";
 import { getGridFSFileInfo, openGridFSDownloadStream } from "@/lib/gridfs";
+
+// CORS headers for image files - allow from anywhere
+function getImageHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: getImageHeaders(),
+  });
+}
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const origin = request.headers.get("origin");
-  const headers = new Headers(getCorsHeaders(origin));
+  const headers = new Headers(getImageHeaders());
 
   try {
     const { id } = await params;
@@ -26,12 +40,10 @@ export async function GET(
     headers.set("Cache-Control", "public, max-age=31536000, immutable");
 
     // Convert Node Readable to Web ReadableStream for NextResponse (Node 18+)
-    const webStream = Readable.toWeb(nodeStream as any) as any;
+    const webStream = Readable.toWeb(nodeStream as unknown as Readable) as ReadableStream;
     return new NextResponse(webStream, { status: 200, headers });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Not found";
     return NextResponse.json({ message: msg }, { status: 404, headers });
   }
 }
-
-
